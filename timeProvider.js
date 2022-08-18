@@ -19,7 +19,7 @@ define(function() {
 		
 		var tickFunctions = [];
 		var tickFunctionNames = [];
-		
+		var onTickFunctions = [];
 		
 		var timeInterval = false;
 		if(intervalFunc && typeof(intervalFunc)==="function") {
@@ -60,6 +60,9 @@ define(function() {
 				tickFunctions[name] = func;
 				tickFunctionNames.push(name);
 			},
+			onTickFunction: function(d, func) {
+				onTickFunctions[d.toString()] = func;
+			},
 			removeTickFunction: function(name) {
 				clearInterval(timeInterval);
 				tickFunctionNames.splice(tickFunctionNames.indexOf(name),1);
@@ -68,13 +71,17 @@ define(function() {
 			},
 			getSpeed: function() {
 				return speed;
+			},
+			executeOnTickFunctions: function() {
+				onTickFunctions[fauxDate()] ? onTickFunctions[fauxDate()]() : void();
 			}
 		};
 	};
-
+	
 	var timeProvider = {};
 	function activate(setDate, speed, func) {
 		timeProvider = new TimeProviderFactory(setDate,speed,func);
+		window.setInterval(executeOnTickFunctions(),10);
 	}
 	
 	return {
@@ -84,6 +91,7 @@ define(function() {
 		getStartDate: function() { return timeProvider.getStartDate(); },
 		addTickFunction: function(name, func) { timeProvider.addTickFunction(name, func); },
 		removeTickFunction: function(name) { timeProvider.removeTickFunction(name); },
+		onTickFunction: function(name, func) { timeProvider.onTickFunction(name,func); },
 		getSpeed: function() { timeProvider.getSpeed(); }
 	};
 });
