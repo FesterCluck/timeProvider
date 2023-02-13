@@ -1,5 +1,4 @@
-define(function() {
-	var TimeProviderFactory = function(objDate, objMultiplier, intervalFunc) {
+    var TimeProviderFactory = function(objDate, objMultiplier, intervalFunc) {
 		if(!(objDate instanceof Date))
 			objDate = new Date(objDate);
 			
@@ -84,7 +83,7 @@ define(function() {
 		window.setInterval(executeOnTickFunctions(),10);
 	}
 	
-	return {
+	export var TimeProvider = {
 		activate : function(setDate, speed, func) { activate(setDate, speed, func); },
 		getDate : function() { return timeProvider.getDate(); },
 		setSpeed: function(speed) { timeProvider.setSpeed(speed); },
@@ -93,7 +92,6 @@ define(function() {
 		removeTickFunction: function(name) { timeProvider.removeTickFunction(name); },
 		onTickFunction: function(name, func) { timeProvider.onTickFunction(name,func); },
 		getSpeed: function() { timeProvider.getSpeed(); }
-	};
-});
+	}
 
 
