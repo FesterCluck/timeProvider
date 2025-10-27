@@ -1,9 +1,6 @@
-// --- Start of Fix C.1: Cross-Environment Timer Abstraction ---
-// Detect the appropriate global context for timers (window in browsers, global in Node, or globalThis).
 var globalContext = (typeof globalThis !== 'undefined' && globalThis) || (typeof window !== 'undefined' && window) || (typeof global !== 'undefined' && global);
 var setIntervalRef = globalContext ? globalContext.setInterval : setInterval;
 var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterval;
-// --- End of Fix C.1 ---
 
     var TimeProviderFactory = function(objDate, objMultiplier, intervalFunc) {
 		if(!(objDate instanceof Date))
@@ -28,6 +25,8 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 		var onTickFunctions = [];
 		
 		var timeInterval = false;
+		var onTickInterval = false; 
+		
 		if(intervalFunc && typeof(intervalFunc)==="function") {
 			tickFunctions._main = intervalFunc;
 			tickFunctionNames.push("_main");
@@ -39,7 +38,6 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 			}
 		};
 		
-		// Replaced window.setInterval with setIntervalRef
 		timeInterval = setIntervalRef(intervalFuncs, intVal);
 		
 		return {
@@ -56,7 +54,6 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 				dateDiff = (new Date()).getTime() - accelDate.getTime();
 				speed = multiplier;
 				if(timeInterval) {
-				// Replaced clearInterval and window.setInterval
 				clearIntervalRef(timeInterval);
 				timeInterval = setIntervalRef(intervalFuncs, intVal);
 				}
@@ -72,7 +69,6 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 				onTickFunctions[d.toString()] = func;
 			},
 			removeTickFunction: function(name) {
-				// Replaced clearInterval and window.setInterval
 				clearIntervalRef(timeInterval);
 				tickFunctionNames.splice(tickFunctionNames.indexOf(name),1);
 				delete tickFunctions[name];
@@ -83,6 +79,23 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 			},
 			executeOnTickFunctions: function() {
 				onTickFunctions[fauxDate()] ? onTickFunctions[fauxDate()]() : void();
+			},
+			
+			// --- Fix B.2: Setter for the 10ms interval ---
+			setOnTickInterval: function(intervalId) {
+				onTickInterval = intervalId;
+			},
+			
+			deactivate: function() {
+				if(timeInterval) {
+					clearIntervalRef(timeInterval);
+					timeInterval = false;
+				}
+				if(onTickInterval) {
+					clearIntervalRef(onTickInterval);
+					onTickInterval = false;
+				}
+
 			}
 		};
 	};
@@ -90,8 +103,10 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 	var timeProvider = {};
 	function activate(setDate, speed, func) {
 		timeProvider = new TimeProviderFactory(setDate,speed,func);
-		// Replaced window.setInterval with setIntervalRef
-		setIntervalRef(executeOnTickFunctions(),10); 
+		
+
+		var onTickIntervalId = setIntervalRef(timeProvider.executeOnTickFunctions, 10); 
+		timeProvider.setOnTickInterval(onTickIntervalId);
 	}
 	
 	export var TimeProvider = {
@@ -102,5 +117,6 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 		addTickFunction: function(name, func) { timeProvider.addTickFunction(name, func); },
 		removeTickFunction: function(name) { timeProvider.removeTickFunction(name); },
 		onTickFunction: function(name, func) { timeProvider.onTickFunction(name,func); },
-		getSpeed: function() { timeProvider.getSpeed(); }
+		getSpeed: function() { timeProvider.getSpeed(); },
+		deactivate: function() { timeProvider.deactivate(); }
 	}
