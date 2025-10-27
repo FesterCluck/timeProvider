@@ -10,6 +10,9 @@ var OriginalClearTimeout = globalContext.clearTimeout;
 var OriginalSetInterval = globalContext.setInterval;
 var OriginalClearInterval = globalContext.clearInterval;
 
+var OriginalSetImmediate = globalContext.setImmediate;
+var OriginalClearImmediate = globalContext.clearImmediate;
+
 var timers = {};
 var nextTimerId = 1;
 var timersPatched = false;
@@ -36,11 +39,27 @@ function MockSetInterval(callback, delay) {
     return id;
 }
 
+function MockSetImmediate(callback) {
+    var id = nextTimerId++;
+    var immediateDelay = 1;
+    timers[id] = {
+        callback: callback,
+        delay: immediateDelay,
+        isInterval: false,
+        mockExecutionTime: MockDate.now() + immediateDelay
+    };
+    return id;
+}
+
 function MockClearTimeout(id) {
     delete timers[id];
 }
 
 function MockClearInterval(id) {
+    delete timers[id];
+}
+
+function MockClearImmediate(id) {
     delete timers[id];
 }
 
@@ -192,63 +211,4 @@ MockDate.parse = OriginalDate.parse;
 			},
 
             advanceTime: function(ms) {
-                if (typeof ms !== 'number' || ms <= 0) return;
-                
-                var newMockTime = fauxDate().getTime() + ms;
-                
-                executeDueTimers(newMockTime);
-
-                accelDate = new Date(newMockTime);
-                dateDiff = (new Date()).getTime() - accelDate.getTime();
-            }
-		};
-	};
-	
-	var timeProvider = {};
-	function activate(setDate, speed, func) {
-		timeProvider = new TimeProviderFactory(setDate,speed,func);
-		
-		var onTickIntervalId = setIntervalRef(timeProvider.executeOnTickFunctions, 10); 
-		timeProvider.setOnTickInterval(onTickIntervalId);
-
-        if (!isPatched) {
-            globalContext.Date = MockDate;
-            isPatched = true;
-        }
-        
-        if (!timersPatched) {
-            globalContext.setTimeout = MockSetTimeout;
-            globalContext.clearTimeout = MockClearTimeout;
-            globalContext.setInterval = MockSetInterval;
-            globalContext.clearInterval = MockClearInterval;
-            timersPatched = true;
-        }
-	}
-	
-	export var TimeProvider = {
-		activate : function(setDate, speed, func) { activate(setDate, speed, func); },
-		getDate : function() { return timeProvider.getDate(); },
-		setSpeed: function(speed) { timeProvider.setSpeed(speed); },
-		getStartDate: function() { return timeProvider.getStartDate(); },
-		addTickFunction: function(name, func) { timeProvider.addTickFunction(name, func); },
-		removeTickFunction: function(name) { timeProvider.removeTickFunction(name); },
-		onTickFunction: function(name, func) { timeProvider.onTickFunction(name,func); },
-		getSpeed: function() { return timeProvider.getSpeed(); },
-        advanceTime: function(ms) { timeProvider.advanceTime(ms); },
-		deactivate: function() { 
-            timeProvider.deactivate(); 
-            if (isPatched) {
-                globalContext.Date = OriginalDate;
-                isPatched = false;
-            }
-            if (timersPatched) {
-                globalContext.setTimeout = OriginalSetTimeout;
-                globalContext.clearTimeout = OriginalClearTimeout;
-                globalContext.setInterval = OriginalSetInterval;
-                globalContext.clearInterval = OriginalClearInterval;
-                timersPatched = false;
-                timers = {}; 
-                nextTimerId = 1;
-            }
-        }
-	}
+                if (typeof
