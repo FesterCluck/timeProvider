@@ -1,3 +1,10 @@
+// --- Start of Fix C.1: Cross-Environment Timer Abstraction ---
+// Detect the appropriate global context for timers (window in browsers, global in Node, or globalThis).
+var globalContext = (typeof globalThis !== 'undefined' && globalThis) || (typeof window !== 'undefined' && window) || (typeof global !== 'undefined' && global);
+var setIntervalRef = globalContext ? globalContext.setInterval : setInterval;
+var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterval;
+// --- End of Fix C.1 ---
+
     var TimeProviderFactory = function(objDate, objMultiplier, intervalFunc) {
 		if(!(objDate instanceof Date))
 			objDate = new Date(objDate);
@@ -32,7 +39,8 @@
 			}
 		};
 		
-		timeInterval = window.setInterval(intervalFuncs, intVal);
+		// Replaced window.setInterval with setIntervalRef
+		timeInterval = setIntervalRef(intervalFuncs, intVal);
 		
 		return {
 			getDate: function() {
@@ -48,8 +56,9 @@
 				dateDiff = (new Date()).getTime() - accelDate.getTime();
 				speed = multiplier;
 				if(timeInterval) {
-				clearInterval(timeInterval);
-				timeInterval = window.setInterval(intervalFuncs, intVal);
+				// Replaced clearInterval and window.setInterval
+				clearIntervalRef(timeInterval);
+				timeInterval = setIntervalRef(intervalFuncs, intVal);
 				}
 			},
 			getStartDate: function() {
@@ -63,10 +72,11 @@
 				onTickFunctions[d.toString()] = func;
 			},
 			removeTickFunction: function(name) {
-				clearInterval(timeInterval);
+				// Replaced clearInterval and window.setInterval
+				clearIntervalRef(timeInterval);
 				tickFunctionNames.splice(tickFunctionNames.indexOf(name),1);
 				delete tickFunctions[name];
-				timeInterval = window.setInterval(intervalFuncs, intVal);
+				timeInterval = setIntervalRef(intervalFuncs, intVal);
 			},
 			getSpeed: function() {
 				return speed;
@@ -80,7 +90,8 @@
 	var timeProvider = {};
 	function activate(setDate, speed, func) {
 		timeProvider = new TimeProviderFactory(setDate,speed,func);
-		window.setInterval(executeOnTickFunctions(),10);
+		// Replaced window.setInterval with setIntervalRef
+		setIntervalRef(executeOnTickFunctions(),10); 
 	}
 	
 	export var TimeProvider = {
@@ -93,5 +104,3 @@
 		onTickFunction: function(name, func) { timeProvider.onTickFunction(name,func); },
 		getSpeed: function() { timeProvider.getSpeed(); }
 	}
-
-
