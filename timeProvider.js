@@ -16,6 +16,11 @@ var OriginalClearImmediate = globalContext.clearImmediate;
 var OriginalRAF = globalContext.requestAnimationFrame;
 var OriginalCAF = globalContext.cancelAnimationFrame;
 
+var OriginalPerformance = globalContext.performance;
+var OriginalPerformanceNow = OriginalPerformance ? OriginalPerformance.now : undefined;
+var performancePatched = false;
+var mockPerformanceStartTime = 0;
+
 var timers = {};
 var nextTimerId = 1;
 var timersPatched = false;
@@ -84,6 +89,10 @@ function MockClearImmediate(id) {
 
 function MockCAF(id) {
     delete timers[id];
+}
+
+function MockPerformanceNow() {
+    return MockDate.now() - mockPerformanceStartTime;
 }
 
 function MockDate() {
@@ -261,6 +270,9 @@ MockDate.parse = OriginalDate.parse;
             isPatched = true;
         }
         
+        // This must be set AFTER MockDate is patched, as MockPerformanceNow relies on MockDate.now()
+        mockPerformanceStartTime = MockDate.now();
+
         if (!timersPatched) {
             globalContext.setTimeout = MockSetTimeout;
             globalContext.clearTimeout = MockClearTimeout;
@@ -275,6 +287,11 @@ MockDate.parse = OriginalDate.parse;
             if (globalContext.requestAnimationFrame) {
                 globalContext.requestAnimationFrame = MockRAF;
                 globalContext.cancelAnimationFrame = MockCAF;
+            }
+            
+            if (OriginalPerformance && OriginalPerformanceNow) {
+                OriginalPerformance.now = MockPerformanceNow;
+                performancePatched = true;
             }
 
             timersPatched = true;
@@ -312,10 +329,16 @@ MockDate.parse = OriginalDate.parse;
                     globalContext.requestAnimationFrame = OriginalRAF;
                     globalContext.cancelAnimationFrame = OriginalCAF;
                 }
+                
+                if (OriginalPerformance && OriginalPerformanceNow) {
+                    OriginalPerformance.now = OriginalPerformanceNow;
+                    performancePatched = false;
+                }
 
                 timersPatched = false;
                 timers = {}; 
                 nextTimerId = 1;
+                mockPerformanceStartTime = 0;
             }
         }
 	}
