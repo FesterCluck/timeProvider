@@ -2,6 +2,28 @@ var globalContext = (typeof globalThis !== 'undefined' && globalThis) || (typeof
 var setIntervalRef = globalContext ? globalContext.setInterval : setInterval;
 var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterval;
 
+var OriginalDate = globalContext.Date;
+var isPatched = false;
+
+function MockDate() {
+    if (arguments.length === 0) {
+        return timeProvider.getDate();
+    }
+    
+    return new (OriginalDate.bind.apply(OriginalDate, [null].concat(Array.prototype.slice.call(arguments))))();
+}
+
+MockDate.now = function() {
+    if (timeProvider && timeProvider.getDate) {
+        return timeProvider.getDate().getTime();
+    }
+    return OriginalDate.now();
+};
+
+MockDate.prototype = OriginalDate.prototype;
+MockDate.UTC = OriginalDate.UTC;
+MockDate.parse = OriginalDate.parse;
+
     var TimeProviderFactory = function(objDate, objMultiplier, intervalFunc) {
 		if(!(objDate instanceof Date))
 			objDate = new Date(objDate);
@@ -81,7 +103,6 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 				onTickFunctions[fauxDate()] ? onTickFunctions[fauxDate()]() : void();
 			},
 			
-			// --- Fix B.2: Setter for the 10ms interval ---
 			setOnTickInterval: function(intervalId) {
 				onTickInterval = intervalId;
 			},
@@ -104,9 +125,13 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 	function activate(setDate, speed, func) {
 		timeProvider = new TimeProviderFactory(setDate,speed,func);
 		
-
 		var onTickIntervalId = setIntervalRef(timeProvider.executeOnTickFunctions, 10); 
 		timeProvider.setOnTickInterval(onTickIntervalId);
+
+        if (!isPatched) {
+            globalContext.Date = MockDate;
+            isPatched = true;
+        }
 	}
 	
 	export var TimeProvider = {
@@ -117,6 +142,12 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 		addTickFunction: function(name, func) { timeProvider.addTickFunction(name, func); },
 		removeTickFunction: function(name) { timeProvider.removeTickFunction(name); },
 		onTickFunction: function(name, func) { timeProvider.onTickFunction(name,func); },
-		getSpeed: function() { timeProvider.getSpeed(); },
-		deactivate: function() { timeProvider.deactivate(); }
+		getSpeed: function() { return timeProvider.getSpeed(); },
+		deactivate: function() { 
+            timeProvider.deactivate(); 
+            if (isPatched) {
+                globalContext.Date = OriginalDate;
+                isPatched = false;
+            }
+        }
 	}
