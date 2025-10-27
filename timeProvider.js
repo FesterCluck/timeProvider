@@ -101,6 +101,39 @@ MockDate.parse = OriginalDate.parse;
 		
 		timeInterval = setIntervalRef(intervalFuncs, intVal);
 		
+        function executeDueTimers(endTime) {
+            var timerIds = Object.keys(timers).sort(function(a, b) {
+                return timers[a].mockExecutionTime - timers[b].mockExecutionTime;
+            });
+
+            for (var i = 0; i < timerIds.length; i++) {
+                var id = timerIds[i];
+                var timer = timers[id];
+                
+                if (timer && timer.mockExecutionTime <= endTime) {
+                    try {
+                        timer.callback();
+                    } catch (e) {
+                        console.error("Error executing mock timer callback:", e);
+                    }
+
+                    if (timer.isInterval) {
+                        timer.mockExecutionTime += timer.delay;
+                        while (timer.mockExecutionTime <= endTime) {
+                             try {
+                                timer.callback();
+                            } catch (e) {
+                                console.error("Error executing mock interval callback:", e);
+                            }
+                            timer.mockExecutionTime += timer.delay;
+                        }
+                    } else {
+                        delete timers[id];
+                    }
+                }
+            }
+        }
+
 		return {
 			getDate: function() {
 				return fauxDate();
@@ -156,7 +189,18 @@ MockDate.parse = OriginalDate.parse;
 					onTickInterval = false;
 				}
 
-			}
+			},
+
+            advanceTime: function(ms) {
+                if (typeof ms !== 'number' || ms <= 0) return;
+                
+                var newMockTime = fauxDate().getTime() + ms;
+                
+                executeDueTimers(newMockTime);
+
+                accelDate = new Date(newMockTime);
+                dateDiff = (new Date()).getTime() - accelDate.getTime();
+            }
 		};
 	};
 	
@@ -190,6 +234,7 @@ MockDate.parse = OriginalDate.parse;
 		removeTickFunction: function(name) { timeProvider.removeTickFunction(name); },
 		onTickFunction: function(name, func) { timeProvider.onTickFunction(name,func); },
 		getSpeed: function() { return timeProvider.getSpeed(); },
+        advanceTime: function(ms) { timeProvider.advanceTime(ms); },
 		deactivate: function() { 
             timeProvider.deactivate(); 
             if (isPatched) {
