@@ -5,6 +5,45 @@ var clearIntervalRef = globalContext ? globalContext.clearInterval : clearInterv
 var OriginalDate = globalContext.Date;
 var isPatched = false;
 
+var OriginalSetTimeout = globalContext.setTimeout;
+var OriginalClearTimeout = globalContext.clearTimeout;
+var OriginalSetInterval = globalContext.setInterval;
+var OriginalClearInterval = globalContext.clearInterval;
+
+var timers = {};
+var nextTimerId = 1;
+var timersPatched = false;
+
+function MockSetTimeout(callback, delay) {
+    var id = nextTimerId++;
+    timers[id] = {
+        callback: callback,
+        delay: delay,
+        isInterval: false,
+        mockExecutionTime: MockDate.now() + delay
+    };
+    return id;
+}
+
+function MockSetInterval(callback, delay) {
+    var id = nextTimerId++;
+    timers[id] = {
+        callback: callback,
+        delay: delay,
+        isInterval: true,
+        mockExecutionTime: MockDate.now() + delay
+    };
+    return id;
+}
+
+function MockClearTimeout(id) {
+    delete timers[id];
+}
+
+function MockClearInterval(id) {
+    delete timers[id];
+}
+
 function MockDate() {
     if (arguments.length === 0) {
         return timeProvider.getDate();
@@ -132,6 +171,14 @@ MockDate.parse = OriginalDate.parse;
             globalContext.Date = MockDate;
             isPatched = true;
         }
+        
+        if (!timersPatched) {
+            globalContext.setTimeout = MockSetTimeout;
+            globalContext.clearTimeout = MockClearTimeout;
+            globalContext.setInterval = MockSetInterval;
+            globalContext.clearInterval = MockClearInterval;
+            timersPatched = true;
+        }
 	}
 	
 	export var TimeProvider = {
@@ -148,6 +195,15 @@ MockDate.parse = OriginalDate.parse;
             if (isPatched) {
                 globalContext.Date = OriginalDate;
                 isPatched = false;
+            }
+            if (timersPatched) {
+                globalContext.setTimeout = OriginalSetTimeout;
+                globalContext.clearTimeout = OriginalClearTimeout;
+                globalContext.setInterval = OriginalSetInterval;
+                globalContext.clearInterval = OriginalClearInterval;
+                timersPatched = false;
+                timers = {}; 
+                nextTimerId = 1;
             }
         }
 	}
